@@ -1,21 +1,16 @@
-# {{provider}} Integration with JupiterOne
+# Red Hat Quay Integration with JupiterOne
 
-## {{provider}} + JupiterOne Integration Benefits
+## Red Hat Quay + JupiterOne Integration Benefits
 
-TODO: Iterate the benefits of ingesting data from the provider into JupiterOne.
-Consider the following examples:
-
-- Visualize {{provider}} services, teams, and users in the JupiterOne graph.
-- Map {{provider}} users to employees in your JupiterOne account.
-- Monitor changes to {{provider}} users using JupiterOne alerts.
+- Visualize Red Hat Quay account, organization, organization members,
+  repositories, and teams in the JupiterOne graph.
+- Map Red Hat Quay users to employees in your JupiterOne account.
+- Monitor changes to Red Hat Quay users using JupiterOne alerts.
 
 ## How it Works
 
-TODO: Iterate significant activities the integration enables. Consider the
-following examples:
-
-- JupiterOne periodically fetches services, teams, and users from {{provider}}
-  to update the graph.
+- JupiterOne periodically fetches account, organization, organization members,
+  repositories, and teams from Red Hat Quay to update the graph.
 - Write JupiterOne queries to review and monitor updates to the graph, or
   leverage existing queries.
 - Configure alerts to take action when JupiterOne graph changes, or leverage
@@ -23,14 +18,15 @@ following examples:
 
 ## Requirements
 
-TODO: Iterate requirements for setting up the integration. Consider the
-following examples:
-
-- {{provider}} supports the OAuth2 Client Credential flow. You must have a
-  Administrator user account.
-- JupiterOne requires a REST API key. You need permission to create a user in
-  {{provider}} that will be used to obtain the API key.
+- Red Hat Quay supports the OAuth2 Client Credential flow.
+- JupiterOne requires a Bearer token. You need permission to create an
+  application in Red Hat Quay that will be used to obtain the API key.
 - You must have permission in JupiterOne to install new integrations.
+
+## Permissions
+
+Access token must have the `user:admin`, `org:admin`, `repo:read`, `user:read`
+permissions
 
 ## Support
 
@@ -39,42 +35,44 @@ If you need help with this integration, please contact
 
 ## Integration Walkthrough
 
-### In {{provider}}
+### In Red Hat Quay
 
-TODO: List specific actions that must be taken in the provider. Remove this
-section when there are no actions to take in the provider.
+[Create and OAuth Access Token](https://access.redhat.com/documentation/en-us/red_hat_quay/3/html/red_hat_quay_api_guide/using_the_red_hat_quay_api#create_oauth_access_token)
 
-1. [Generate a REST API key](https://example.com/docs/generating-api-keys)
+1. Log in to Red Hat Quay and select your Organization (or create a new one).
+2. Select the Applications icon from the left navigation.
+3. Select Create New Application and give the new application a name when
+   prompted.
+4. Select the new application.
+5. Select Generate Token from the left navigation.
+6. Select the checkboxes to set the scope of the token and select Generate
+   Access Token.
+7. Review the permissions you are allowing and select Authorize Application to
+   approve it.
+8. Copy the newly generated token to use to access the API.
 
 ### In JupiterOne
 
-TODO: List specific actions that must be taken in JupiterOne. Many of the
-following steps will be reusable; take care to be sure they remain accurate.
-
 1. From the configuration **Gear Icon**, select **Integrations**.
-2. Scroll to the **{{provider}}** integration tile and click it.
+2. Scroll to the **Red Hat Quay** integration tile and click it.
 3. Click the **Add Configuration** button and configure the following settings:
 
-- Enter the **Account Name** by which you'd like to identify this {{provider}}
+- Enter the **Account Name** by which you'd like to identify this Red Hat Quay
   account in JupiterOne. Ingested entities will have this value stored in
   `tag.AccountName` when **Tag with Account Name** is checked.
 - Enter a **Description** that will further assist your team when identifying
   the integration instance.
 - Select a **Polling Interval** that you feel is sufficient for your monitoring
   needs. You may leave this as `DISABLED` and manually execute the integration.
-- {{additional provider-specific settings}} Enter the **{{provider}} API Key**
-  generated for use by JupiterOne.
+- Enter the **Hostname**, and **Red Hat Quay Access Token** generated for use by
+  JupiterOne.
 
 4. Click **Create Configuration** once all values are provided.
 
 # How to Uninstall
 
-TODO: List specific actions that must be taken to uninstall the integration.
-Many of the following steps will be reusable; take care to be sure they remain
-accurate.
-
 1. From the configuration **Gear Icon**, select **Integrations**.
-2. Scroll to the **{{provider}}** integration tile and click it.
+2. Scroll to the **Red Hat Quay** integration tile and click it.
 3. Identify and click the **integration to delete**.
 4. Click the **trash can** icon.
 5. Click the **Remove** button to delete the integration.
@@ -96,21 +94,25 @@ https://github.com/JupiterOne/sdk/blob/main/docs/integrations/development.md
 
 The following entities are created:
 
-| Resources | Entity `_type` | Entity `_class` |
-| --------- | -------------- | --------------- |
-| Account   | `acme_account` | `Account`       |
-| User      | `acme_user`    | `User`          |
-| UserGroup | `acme_group`   | `UserGroup`     |
+| Resources          | Entity `_type`                     | Entity `_class` |
+| ------------------ | ---------------------------------- | --------------- |
+| Account            | `red_hat_quay_account`             | `Account`       |
+| Organization       | `red_hat_quay_organization`        | `Organization`  |
+| OrganizationMember | `red_hat_quay_organization_member` | `User`          |
+| Repository         | `red_hat_quay_repository`          | `Repository`    |
+| Team               | `red_hat_quay_team`                | `Team`          |
 
 ### Relationships
 
 The following relationships are created:
 
-| Source Entity `_type` | Relationship `_class` | Target Entity `_type` |
-| --------------------- | --------------------- | --------------------- |
-| `acme_account`        | **HAS**               | `acme_group`          |
-| `acme_account`        | **HAS**               | `acme_user`           |
-| `acme_group`          | **HAS**               | `acme_user`           |
+| Source Entity `_type`       | Relationship `_class` | Target Entity `_type`              |
+| --------------------------- | --------------------- | ---------------------------------- |
+| `red_hat_quay_account`      | **HAS**               | `red_hat_quay_organization`        |
+| `red_hat_quay_organization` | **HAS**               | `red_hat_quay_organization_member` |
+| `red_hat_quay_organization` | **HAS**               | `red_hat_quay_repository`          |
+| `red_hat_quay_organization` | **HAS**               | `red_hat_quay_team`                |
+| `red_hat_quay_team`         | **HAS**               | `red_hat_quay_organization_member` |
 
 <!--
 ********************************************************************************
