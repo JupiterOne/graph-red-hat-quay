@@ -1,120 +1,190 @@
-import http from 'http';
+import fetch, { Response } from 'node-fetch';
 
-import { IntegrationProviderAuthenticationError } from '@jupiterone/integration-sdk-core';
+import {
+  IntegrationProviderAPIError,
+  IntegrationProviderAuthenticationError,
+} from '@jupiterone/integration-sdk-core';
+import { retry } from '@lifeomic/attempt';
 
 import { IntegrationConfig } from './config';
-import { AcmeUser, AcmeGroup } from './types';
+import {
+  RedHatQuayOrganizationMember,
+  RedHatQuayOrganization,
+  RedHatQuayUser,
+  RedHatQuayTeamDetails,
+  RedHatQuayOrganizationDetails,
+  RedHatQuayRepository,
+} from './types';
 
 export type ResourceIteratee<T> = (each: T) => Promise<void> | void;
 
-/**
- * An APIClient maintains authentication state and provides an interface to
- * third party data APIs.
- *
- * It is recommended that integrations wrap provider data APIs to provide a
- * place to handle error responses and implement common patterns for iterating
- * resources.
- */
 export class APIClient {
   constructor(readonly config: IntegrationConfig) {}
 
-  public async verifyAuthentication(): Promise<void> {
-    // TODO make the most light-weight request possible to validate
-    // authentication works with the provided credentials, throw an err if
-    // authentication fails
-    const request = new Promise<void>((resolve, reject) => {
-      http.get(
-        {
-          hostname: 'localhost',
-          port: 443,
-          path: '/api/v1/some/endpoint?limit=1',
-          agent: false,
-          timeout: 10,
+  private baseUri = `${this.config.hostname}/api/v1/`;
+  private withBaseUri = (path: string) => `${this.baseUri}${path}`;
+
+  private checkStatus = (response: Response) => {
+    if (response.ok) {
+      return response;
+    } else {
+      throw new IntegrationProviderAPIError(response);
+    }
+  };
+
+  private async request(uri: string, method?: 'GET'): Promise<Response> {
+    try {
+      const options = {
+        method,
+        headers: {
+          Authorization: `Bearer ${this.config.accessToken}`,
         },
-        (res) => {
-          if (res.statusCode !== 200) {
-            reject(new Error('Provider authentication failed'));
-          } else {
-            resolve();
-          }
+      };
+
+      // Handle rate-limiting
+      const response = await retry(
+        async () => {
+          const res: Response = await fetch(uri, options);
+          this.checkStatus(res);
+          return res;
+        },
+        {
+          delay: 5000,
+          maxAttempts: 10,
+          handleError: (err, context) => {
+            if (
+              err.statusCode !== 429 ||
+              ([500, 502, 503].includes(err.statusCode) &&
+                context.attemptNum > 1)
+            )
+              context.abort();
+          },
         },
       );
-    });
 
+      return response.json();
+    } catch (err) {
+      throw new IntegrationProviderAPIError({
+        endpoint: uri,
+        status: err.status || err.type,
+        statusText: err.statusText || err.code,
+      });
+    }
+  }
+
+  private async paginatedRequest<T>(
+    uri: string,
+    iteratee: ResourceIteratee<T>,
+    resourceName: string,
+    method?: 'GET',
+  ): Promise<void> {
     try {
-      await request;
+      let next_page = null;
+      do {
+        const response = await this.request(
+          `${uri}${next_page ? `?next_page=${next_page}` : ''}`,
+          method,
+        );
+
+        for (const resource of response[resourceName]) await iteratee(resource);
+        next_page = response.next_page || null;
+      } while (next_page);
+    } catch (err) {
+      throw new IntegrationProviderAPIError({
+        cause: new Error(err.message),
+        endpoint: uri,
+        status: err.statusCode,
+        statusText: err.message,
+      });
+    }
+  }
+
+  public async verifyAuthentication(): Promise<void> {
+    const uri = this.withBaseUri('user/');
+    try {
+      await this.request(uri);
     } catch (err) {
       throw new IntegrationProviderAuthenticationError({
         cause: err,
-        endpoint: 'https://localhost/api/v1/some/endpoint?limit=1',
+        endpoint: uri,
         status: err.status,
         statusText: err.statusText,
       });
     }
   }
 
+  public async getCurrentUser(): Promise<RedHatQuayUser> {
+    return this.request(this.withBaseUri(`user/`));
+  }
+
+  public async getOrganization(
+    organizationName: string,
+  ): Promise<RedHatQuayOrganizationDetails> {
+    return this.request(this.withBaseUri(`organization/${organizationName}`));
+  }
+
   /**
-   * Iterates each user resource in the provider.
+   * Iterates each organization resource in the provider.
    *
-   * @param iteratee receives each resource to produce entities/relationships
+   * @param iteratee receives each organization to produce entities/relationships
    */
-  public async iterateUsers(
-    iteratee: ResourceIteratee<AcmeUser>,
+  public async iterateOrganizations(
+    iteratee: ResourceIteratee<RedHatQuayOrganization>,
   ): Promise<void> {
-    // TODO paginate an endpoint, invoke the iteratee with each record in the
-    // page
-    //
-    // The provider API will hopefully support pagination. Functions like this
-    // should maintain pagination state, and for each page, for each record in
-    // the page, invoke the `ResourceIteratee`. This will encourage a pattern
-    // where each resource is processed and dropped from memory.
+    const currentUser = await this.getCurrentUser();
 
-    const users: AcmeUser[] = [
-      {
-        id: 'acme-user-1',
-        name: 'User One',
-      },
-      {
-        id: 'acme-user-2',
-        name: 'User Two',
-      },
-    ];
-
-    for (const user of users) {
-      await iteratee(user);
+    for (const organization of currentUser.organizations) {
+      await iteratee(organization);
     }
   }
 
   /**
-   * Iterates each group resource in the provider.
+   * Iterates each organization member resource in the provider.
    *
-   * @param iteratee receives each resource to produce entities/relationships
+   * @param iteratee receives each organization member to produce entities/relationships
    */
-  public async iterateGroups(
-    iteratee: ResourceIteratee<AcmeGroup>,
+  public async iterateOrganizationMembers(
+    organizationName: string,
+    iteratee: ResourceIteratee<RedHatQuayOrganizationMember>,
   ): Promise<void> {
-    // TODO paginate an endpoint, invoke the iteratee with each record in the
-    // page
-    //
-    // The provider API will hopefully support pagination. Functions like this
-    // should maintain pagination state, and for each page, for each record in
-    // the page, invoke the `ResourceIteratee`. This will encourage a pattern
-    // where each resource is processed and dropped from memory.
+    await this.paginatedRequest<RedHatQuayOrganizationMember>(
+      this.withBaseUri(`organization/${organizationName}/members`),
+      iteratee,
+      'members',
+    );
+  }
 
-    const groups: AcmeGroup[] = [
-      {
-        id: 'acme-group-1',
-        name: 'Group One',
-        users: [
-          {
-            id: 'acme-user-1',
-          },
-        ],
-      },
-    ];
+  /**
+   * Iterates each team resource in the provider.
+   *
+   * @param iteratee receives each team to produce entities/relationships
+   */
+  public async iterateTeams(
+    organizationName: string,
+    iteratee: ResourceIteratee<RedHatQuayTeamDetails>,
+  ): Promise<void> {
+    const organization = await this.getOrganization(organizationName);
 
-    for (const group of groups) {
-      await iteratee(group);
+    for (const teamNames in organization.teams) {
+      await iteratee(organization.teams[teamNames]);
+    }
+  }
+
+  /**
+   * Iterates each repository resource in the provider.
+   *
+   * @param iteratee receives each repository to produce entities/relationships
+   */
+  public async iterateRepositories(
+    organizationNamespace: string,
+    iteratee: ResourceIteratee<RedHatQuayRepository>,
+  ): Promise<void> {
+    const organization = await this.request(
+      this.withBaseUri(`repository?namespace=${organizationNamespace}`),
+    );
+
+    for (const repository of organization.repositories) {
+      await iteratee(repository);
     }
   }
 }

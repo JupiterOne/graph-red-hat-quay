@@ -2,6 +2,7 @@ import {
   createMockExecutionContext,
   Recording,
 } from '@jupiterone/integration-sdk-testing';
+
 import { integrationConfig } from '../test/config';
 import { setupProjectRecording } from '../test/recording';
 import { IntegrationConfig, validateInvocation } from './config';
@@ -21,14 +22,14 @@ describe('#validateInvocation', () => {
     });
 
     await expect(validateInvocation(executionContext)).rejects.toThrow(
-      'Config requires all of {clientId, clientSecret}',
+      'Config requires all of {hostname, accessToken}',
     );
   });
 
   /**
    * Testing a successful authorization can be done with recordings
    */
-  test.skip('successfully validates invocation', async () => {
+  test('successfully validates invocation', async () => {
     recording = setupProjectRecording({
       directory: __dirname,
       name: 'validate-invocation',
@@ -54,49 +55,61 @@ describe('#validateInvocation', () => {
      * error messaging is expected and clear to end-users
      */
     describe('invalid user credentials', () => {
-      test.skip('should throw if clientId is invalid', async () => {
+      test('should throw if hostname is invalid', async () => {
         recording = setupProjectRecording({
           directory: __dirname,
-          name: 'client-id-auth-error',
+          name: 'hostname-auth-error',
           // Many authorization failures will return non-200 responses
           // and `recordFailedRequest: true` is needed to capture these responses
           options: {
             recordFailedRequests: true,
+            matchRequestsBy: {
+              url: {
+                hostname: false,
+              },
+            },
           },
         });
 
         const executionContext = createMockExecutionContext({
           instanceConfig: {
-            clientId: 'INVALID',
-            clientSecret: integrationConfig.clientSecret,
+            hostname: 'http://invalid',
+            accessToken: integrationConfig.accessToken,
           },
         });
 
         // tests validate that invalid configurations throw an error
         // with an appropriate and expected message.
-        await expect(validateInvocation(executionContext)).rejects.toThrow(
-          'Provider authentication failed at https://localhost/api/v1/some/endpoint?limit=1: 401 Unauthorized',
-        );
+        expect.assertions(1);
+        await validateInvocation(executionContext).catch((err) => {
+          expect(err.status).toBe('system');
+        });
       });
 
-      test.skip('should throw if clientSecret is invalid', async () => {
+      test('should throw if clientSecret is invalid', async () => {
         recording = setupProjectRecording({
           directory: __dirname,
           name: 'client-secret-auth-error',
           options: {
             recordFailedRequests: true,
+            matchRequestsBy: {
+              url: {
+                hostname: false,
+              },
+            },
           },
         });
 
         const executionContext = createMockExecutionContext({
           instanceConfig: {
-            clientId: integrationConfig.clientSecret,
-            clientSecret: 'INVALID',
+            hostname: integrationConfig.hostname,
+            accessToken: 'INVALID',
           },
         });
 
-        await expect(validateInvocation(executionContext)).rejects.toThrow(
-          'Provider authentication failed at https://localhost/api/v1/some/endpoint?limit=1: 401 Unauthorized',
+        expect.assertions(1);
+        await validateInvocation(executionContext).catch((err) =>
+          expect(err.status).toBe(401),
         );
       });
     });

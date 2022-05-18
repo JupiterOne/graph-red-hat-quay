@@ -6,75 +6,88 @@ import {
 
 export const Steps = {
   ACCOUNT: 'fetch-account',
-  USERS: 'fetch-users',
-  GROUPS: 'fetch-groups',
-  GROUP_USER_RELATIONSHIPS: 'build-user-group-relationships',
+  ORGANIZATION: 'fetch-organizations',
+  ORGANIZATION_MEMBER: 'fetch-organization-members',
+  BUILD_ORGANIZATION_MEMBER_TEAM:
+    'build-organization-member-team-relationships',
+  TEAM: 'fetch-teams',
+  REPOSITORY: 'fetch-repositories',
 };
 
 export const Entities: Record<
-  'ACCOUNT' | 'GROUP' | 'USER',
+  'ACCOUNT' | 'ORGANIZATION' | 'ORGANIZATION_MEMBER' | 'TEAM' | 'REPOSITORY',
   StepEntityMetadata
 > = {
   ACCOUNT: {
     resourceName: 'Account',
-    _type: 'acme_account',
+    _type: 'red_hat_quay_account',
     _class: ['Account'],
     schema: {
       properties: {
-        mfaEnabled: { type: 'boolean' },
-        manager: { type: 'string' },
-      },
-      required: ['mfaEnabled', 'manager'],
-    },
-  },
-  GROUP: {
-    resourceName: 'UserGroup',
-    _type: 'acme_group',
-    _class: ['UserGroup'],
-    schema: {
-      properties: {
+        name: { type: 'string' },
         email: { type: 'string' },
-        logoLink: { type: 'string' },
       },
-      required: ['email', 'logoLink'],
+      required: ['name', 'email'],
     },
   },
-  USER: {
-    resourceName: 'User',
-    _type: 'acme_user',
+  ORGANIZATION: {
+    resourceName: 'Organization',
+    _type: 'red_hat_quay_organization',
+    _class: ['Organization'],
+  },
+  ORGANIZATION_MEMBER: {
+    resourceName: 'OrganizationMember',
+    _type: 'red_hat_quay_organization_member',
     _class: ['User'],
-    schema: {
-      properties: {
-        username: { type: 'string' },
-        email: { type: 'string' },
-        active: { type: 'boolean' },
-        firstName: { type: 'string' },
-      },
-      required: ['username', 'email', 'active', 'firstName'],
-    },
+  },
+  TEAM: {
+    resourceName: 'Team',
+    _type: 'red_hat_quay_team',
+    _class: ['Team'],
+  },
+  REPOSITORY: {
+    resourceName: 'Repository',
+    _type: 'red_hat_quay_repository',
+    _class: ['Repository'],
   },
 };
 
 export const Relationships: Record<
-  'ACCOUNT_HAS_USER' | 'ACCOUNT_HAS_GROUP' | 'GROUP_HAS_USER',
+  | 'ACCOUNT_HAS_ORGANIZATION'
+  | 'ORGANIZATION_HAS_ORGANIZATION_MEMBER'
+  | 'ORGANIZATION_HAS_TEAM'
+  | 'TEAM_HAS_ORGANIZATION_MEMBER'
+  | 'ORGANIZATION_HAS_REPOSITORY',
   StepRelationshipMetadata
 > = {
-  ACCOUNT_HAS_USER: {
-    _type: 'acme_account_has_user',
+  ACCOUNT_HAS_ORGANIZATION: {
+    _type: 'red_hat_quay_account_has_organization',
     sourceType: Entities.ACCOUNT._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.USER._type,
+    targetType: Entities.ORGANIZATION._type,
   },
-  ACCOUNT_HAS_GROUP: {
-    _type: 'acme_account_has_group',
-    sourceType: Entities.ACCOUNT._type,
+  ORGANIZATION_HAS_ORGANIZATION_MEMBER: {
+    _type: 'red_hat_quay_organization_has_member',
+    sourceType: Entities.ORGANIZATION._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.GROUP._type,
+    targetType: Entities.ORGANIZATION_MEMBER._type,
   },
-  GROUP_HAS_USER: {
-    _type: 'acme_group_has_user',
-    sourceType: Entities.GROUP._type,
+  ORGANIZATION_HAS_TEAM: {
+    _type: 'red_hat_quay_organization_has_team',
+    sourceType: Entities.ORGANIZATION._type,
     _class: RelationshipClass.HAS,
-    targetType: Entities.USER._type,
+    targetType: Entities.TEAM._type,
+  },
+  TEAM_HAS_ORGANIZATION_MEMBER: {
+    _type: 'red_hat_quay_team_has_organization_member',
+    sourceType: Entities.TEAM._type,
+    _class: RelationshipClass.HAS,
+    targetType: Entities.ORGANIZATION_MEMBER._type,
+  },
+  ORGANIZATION_HAS_REPOSITORY: {
+    _type: 'red_hat_quay_organization_has_repository',
+    sourceType: Entities.ORGANIZATION._type,
+    _class: RelationshipClass.HAS,
+    targetType: Entities.REPOSITORY._type,
   },
 };

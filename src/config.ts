@@ -4,6 +4,7 @@ import {
   IntegrationInstanceConfigFieldMap,
   IntegrationInstanceConfig,
 } from '@jupiterone/integration-sdk-core';
+
 import { createAPIClient } from './client';
 
 /**
@@ -21,10 +22,10 @@ import { createAPIClient } from './client';
  * `instance.config` in a UI.
  */
 export const instanceConfigFields: IntegrationInstanceConfigFieldMap = {
-  clientId: {
+  hostname: {
     type: 'string',
   },
-  clientSecret: {
+  accessToken: {
     type: 'string',
     mask: true,
   },
@@ -36,14 +37,14 @@ export const instanceConfigFields: IntegrationInstanceConfigFieldMap = {
  */
 export interface IntegrationConfig extends IntegrationInstanceConfig {
   /**
-   * The provider API client ID used to authenticate requests.
+   * The provider hostname used to authenticate requests.
    */
-  clientId: string;
+  hostname: string;
 
   /**
-   * The provider API client secret used to authenticate requests.
+   * The provider API access token used to authenticate requests.
    */
-  clientSecret: string;
+  accessToken: string;
 }
 
 export async function validateInvocation(
@@ -51,9 +52,9 @@ export async function validateInvocation(
 ) {
   const { config } = context.instance;
 
-  if (!config.clientId || !config.clientSecret) {
+  if (!config.hostname || !config.accessToken) {
     throw new IntegrationValidationError(
-      'Config requires all of {clientId, clientSecret}',
+      'Config requires all of {hostname, accessToken}',
     );
   }
 
