@@ -1,6 +1,6 @@
 {
   "name": "@jupiterone/graph-red-hat-quay",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A JupiterOne Integration for ingesting data of the Red Hat Quay",
   "license": "MPL-2.0",
   "main": "src/index.js",
